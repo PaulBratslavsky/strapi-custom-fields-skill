@@ -2,9 +2,13 @@ import type { Core } from "@strapi/strapi";
 
 const register = ({ strapi }: { strapi: Core.Strapi }) => {
   strapi.customFields.register({
-    name: "rickroll",
-    plugin: "strapi-plugin-rickroll",
-    type: "string",
+    name: "{{FIELD_NAME}}",
+    plugin: "{{PKG_NAME}}",
+    type: "text",
+    inputSize: {
+      default: 12,
+      isResizable: true,
+    },
   });
 };
 
