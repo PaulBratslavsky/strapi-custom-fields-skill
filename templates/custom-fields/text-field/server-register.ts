@@ -3,7 +3,7 @@ import type { Core } from "@strapi/strapi";
 const register = ({ strapi }: { strapi: Core.Strapi }) => {
   strapi.customFields.register({
     name: "{{FIELD_NAME}}",
-    plugin: "{{PKG_NAME}}",
+    plugin: "{{PLUGIN_ID}}",
     type: "text",
     inputSize: {
       default: 12,

@@ -1,0 +1,15 @@
+import type { Core } from "@strapi/strapi";
+
+const register = ({ strapi }: { strapi: Core.Strapi }) => {
+  strapi.customFields.register({
+    name: "{{FIELD_NAME}}",
+    plugin: "{{PLUGIN_ID}}",
+    type: "boolean",
+    inputSize: {
+      default: 12,
+      isResizable: true,
+    },
+  });
+};
+
+export default register;

@@ -197,6 +197,128 @@ const {{COMPONENT_NAME}} = ({
 export { {{COMPONENT_NAME}} };
 ```
 
+## Integer Field Component
+
+For `type: "integer"` — counts, ratings, scores, numeric values.
+
+**Note:** The admin input is UI only — ranges are not enforced server-side. Add min/max validation via `options.advanced` or content-type validation for production fields.
+
+```typescript
+import { Field, NumberInput } from "@strapi/design-system";
+
+interface {{COMPONENT_NAME}}Props {
+  name: string;
+  onChange: (event: { target: { name: string; value: number | null; type: string } }) => void;
+  value?: number | null;
+  intlLabel?: { defaultMessage: string };
+  required?: boolean;
+  attribute?: { type: string; customField: string };
+  disabled?: boolean;
+  error?: string;
+  description?: { defaultMessage: string };
+  placeholder?: { defaultMessage: string };
+}
+
+const {{COMPONENT_NAME}} = ({
+  name,
+  onChange,
+  value,
+  intlLabel,
+  required = false,
+  disabled = false,
+  error,
+  description,
+  placeholder,
+}: {{COMPONENT_NAME}}Props) => {
+  const handleValueChange = (newValue?: number) => {
+    onChange({
+      target: { name, value: newValue ?? null, type: "integer" },
+    });
+  };
+
+  return (
+    <Field.Root
+      name={name}
+      error={error}
+      hint={description?.defaultMessage}
+      required={required}
+    >
+      <Field.Label>{intlLabel?.defaultMessage ?? "{{FIELD_LABEL}}"}</Field.Label>
+      <NumberInput
+        onValueChange={handleValueChange}
+        value={value ?? undefined}
+        placeholder={placeholder?.defaultMessage}
+        disabled={disabled}
+        step={1}
+      />
+      <Field.Hint />
+      <Field.Error />
+    </Field.Root>
+  );
+};
+
+export { {{COMPONENT_NAME}} };
+```
+
+## Boolean Field Component
+
+For `type: "boolean"` — toggles, flags, on/off values.
+
+```typescript
+import { Field, Toggle } from "@strapi/design-system";
+
+interface {{COMPONENT_NAME}}Props {
+  name: string;
+  onChange: (event: { target: { name: string; value: boolean; type: string } }) => void;
+  value?: boolean | null;
+  intlLabel?: { defaultMessage: string };
+  required?: boolean;
+  attribute?: { type: string; customField: string };
+  disabled?: boolean;
+  error?: string;
+  description?: { defaultMessage: string };
+}
+
+const {{COMPONENT_NAME}} = ({
+  name,
+  onChange,
+  value,
+  intlLabel,
+  required = false,
+  disabled = false,
+  error,
+  description,
+}: {{COMPONENT_NAME}}Props) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({
+      target: { name, value: e.target.checked, type: "boolean" },
+    });
+  };
+
+  return (
+    <Field.Root
+      name={name}
+      error={error}
+      hint={description?.defaultMessage}
+      required={required}
+    >
+      <Field.Label>{intlLabel?.defaultMessage ?? "{{FIELD_LABEL}}"}</Field.Label>
+      <Toggle
+        onLabel="True"
+        offLabel="False"
+        checked={value ?? false}
+        onChange={handleChange}
+        disabled={disabled}
+      />
+      <Field.Hint />
+      <Field.Error />
+    </Field.Root>
+  );
+};
+
+export { {{COMPONENT_NAME}} };
+```
+
 ## Available @strapi/icons
 
 Common icons for custom fields: `PaintBrush`, `PinMap`, `MusicNotes`, `Code`, `Star`, `Eye`, `Globe`, `Calendar`, `Clock`, `Link`, `File`, `Image`, `Play`, `Grid`, `ChartBubble`, `ChartPie`, `Dashboard`, `Earth`, `Feather`, `Heart`, `Key`, `Landscape`, `Lightning`, `Magic`, `Message`, `Monitor`, `PaperPlane`, `Picture`, `Pin`, `PuzzlePiece`, `Shield`, `Spark`, `Trophy`, `User`, `Write`.

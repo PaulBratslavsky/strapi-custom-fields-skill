@@ -26,7 +26,7 @@ First, ask whether the user wants to start from an example template or from scra
 
 **If the user picks Rick Roll example**, skip the questions below and jump to Step 2 with these pre-filled values, only asking for output path and Strapi app path:
 - Plugin name: `strapi-plugin-rickroll`
-- Plugin ID: `strapi-plugin-rickroll`
+- Plugin ID: `rickroll`
 - Display name: `Rick Roll`
 - Description: `Never gonna give you up - embeds the legendary Rick Astley video`
 - Custom field name: `rickroll`
@@ -34,9 +34,11 @@ First, ask whether the user wants to start from an example template or from scra
 - Icon: `Play`
 - Template: `rickroll`
 
-**If starting from scratch**, ask using `AskUserQuestion`:
+**If starting from scratch**, ask the user (use your environment's question tool — `AskUserQuestion` in Claude Code, or the equivalent in other agents):
 
 1. **Plugin name** — npm package name (e.g., `strapi-plugin-color-picker`). Must start with `strapi-plugin-`.
+
+   Derive the **plugin ID** from it by stripping the `strapi-plugin-` prefix (e.g., `color-picker`). Official Strapi plugins always use the short name as the plugin ID (`strapi.name` in `package.json`, `@strapi/plugin-color-picker` → `color-picker`) — never the full npm package name. The server `plugin` value, admin `pluginId`, and the key in `config/plugins.ts` must all use this short ID.
 2. **Custom field name** — kebab-case identifier (e.g., `color-picker`).
 3. **Display name** — Human-readable label for the Content-Type Builder (e.g., `Color Picker`).
 4. **Description** — Short description of the field.
@@ -51,7 +53,13 @@ First, ask whether the user wants to start from an example template or from scra
    - `string-field` — Generic string input with TextInput
    - `json-field` — JSON editor with internal state management
    - `text-field` — Textarea for long text content
+   - `integer-field` — Number input for counts, ratings, numeric values
+   - `boolean-field` — Toggle for flags and on/off values
+   - `color-picker` — Working example: color swatch + hex input (string)
+   - `star-rating` — Working example: interactive 1–5 star buttons (integer)
    - Or skip to generate from scratch using `references/boilerplate.md`
+
+   If the user's request closely matches one of the working examples (a color field, a rating field), prefer that template over the generic one — it ships a complete interactive UI instead of a starter input.
 
 **Always ask:**
 
@@ -78,8 +86,8 @@ Do NOT copy `package.json.template` or `README.md.template` as-is — these are 
 
 Only two files in the base scaffold contain placeholders:
 
-- `admin/src/pluginId.ts` — replace `{{PLUGIN_ID}}` with the plugin ID (e.g., `strapi-plugin-color-picker`)
-- `server/src/controllers/controller.ts` — replace `{{PLUGIN_ID}}` with the plugin ID
+- `admin/src/pluginId.ts` — replace `{{PLUGIN_ID}}` with the short plugin ID (e.g., `color-picker`)
+- `server/src/controllers/controller.ts` — replace `{{PLUGIN_ID}}` with the short plugin ID
 
 #### 2c. Generate `package.json` from template
 
@@ -88,20 +96,18 @@ Read `templates/plugin-base/package.json.template` and replace all placeholders:
 | Placeholder | Value |
 |---|---|
 | `{{PKG_NAME}}` | Plugin name (e.g., `strapi-plugin-color-picker`) |
-| `{{PLUGIN_ID}}` | Plugin ID (usually same as plugin name) |
+| `{{PLUGIN_ID}}` | Short plugin ID — package name without the `strapi-plugin-` prefix (e.g., `color-picker`) |
 | `{{DISPLAY_NAME}}` | Display name (e.g., `Color Picker`) |
 | `{{DESCRIPTION}}` | Description text |
 
 Write the result as `<output-path>/package.json`.
 
-**Important:** The `devDependencies` in the template use `"*"` as version placeholders. After writing the file, resolve these to actual latest versions by running:
+**Important — dependency versions:** The template ships with pinned version ranges for Strapi packages. If the plugin will be integrated into an existing Strapi app (Step 5), align the versions with that app first: read the app's `package.json` and use the same `@strapi/strapi` version range so the plugin builds against the same APIs. In a monorepo with workspaces, use the workspace protocol (e.g., `"@strapi/strapi": "workspace:*"` for Yarn) instead. Never widen versions back to `"*"` — unpinned versions resolve to whatever is latest at install time, which breaks reproducibility and can pull in incompatible majors. Then install:
 
 ```bash
 cd <output-path>
 npm install
 ```
-
-This will resolve `"*"` versions to the latest available packages and create `node_modules/` and `package-lock.json`.
 
 #### 2d. Generate `README.md` from template
 
@@ -121,21 +127,23 @@ The base scaffold generates a generic plugin. Now apply the custom field overrid
 
 #### Option A: Using a template from `templates/custom-fields/`
 
-If the user chose a template (rickroll, string-field, json-field, or text-field), copy the 3 override files from that template:
+If the user chose a template (rickroll, string-field, json-field, text-field, integer-field, boolean-field, color-picker, or star-rating), copy the 3 override files from that template:
 
 1. `templates/custom-fields/<template>/server-register.ts` → `<output-path>/server/src/register.ts`
 2. `templates/custom-fields/<template>/admin-index.ts` → `<output-path>/admin/src/index.ts`
 3. `templates/custom-fields/<template>/component/<ComponentName>.tsx` → `<output-path>/admin/src/components/custom-field/<ComponentName>/index.tsx`
 
+**Note:** Copying `admin-index.ts` over `admin/src/index.ts` replaces the base scaffold's admin entry entirely — including its menu link and admin page registration. This is intentional for custom-field-only plugins (they don't need an admin page), but if the user also wants a plugin settings/admin page, merge the custom field registration into the existing `admin/src/index.ts` instead of overwriting it.
+
 **For the rickroll template:** Files are pre-filled with real values — no placeholder replacement needed. The component directory name should be `RickRollField`.
 
-**For other templates (string-field, json-field, text-field):** Replace all placeholders in the copied files:
+**For other templates:** Replace all placeholders in the copied files:
 
 | Placeholder | Value |
 |---|---|
 | `{{FIELD_NAME}}` | Custom field name, kebab-case (e.g., `color-picker`) |
 | `{{PKG_NAME}}` | Plugin name (e.g., `strapi-plugin-color-picker`) |
-| `{{PLUGIN_ID}}` | Plugin ID (same as plugin name) |
+| `{{PLUGIN_ID}}` | Short plugin ID — package name without the `strapi-plugin-` prefix (e.g., `color-picker`) |
 | `{{DISPLAY_NAME}}` | Display name (e.g., `Color Picker`) |
 | `{{DESCRIPTION}}` | Description text |
 | `{{ICON_NAME}}` | Icon component name (e.g., `PaintBrush`) |
@@ -153,7 +161,7 @@ import type { Core } from "@strapi/strapi";
 const register = ({ strapi }: { strapi: Core.Strapi }) => {
   strapi.customFields.register({
     name: "<field-name>",
-    plugin: "<plugin-name>",
+    plugin: "<plugin-id>", // short ID, e.g. "color-picker" — NOT the npm package name
     type: "<field-type>",
     inputSize: {
       default: 12,
@@ -225,13 +233,14 @@ export default {
 
 Use `<ComponentName>` as PascalCase of the field name + "Field" (e.g., `color-picker` → `ColorPickerField`).
 
-Read `references/boilerplate.md` for starter component templates for each field type (`string`, `json`, `text`). Pick the template matching the user's chosen field type. Replace `{{COMPONENT_NAME}}` and `{{FIELD_LABEL}}` placeholders with actual values.
+Read `references/boilerplate.md` for starter component templates for each field type (`string`, `json`, `text`, `integer`, `boolean`). Pick the template matching the user's chosen field type. Replace `{{COMPONENT_NAME}}` and `{{FIELD_LABEL}}` placeholders with actual values.
 
 The component must:
 - Accept Strapi's custom field props: `name`, `onChange`, `value`, `intlLabel`, `required`, `disabled`, `error`, `description`, `placeholder`, `attribute`
 - Call `onChange({ target: { name, value, type: "<field-type>" } })` to update the value
 - Use `@strapi/design-system` components for consistent admin UI styling
 - Follow the rules in the "External Resources & CSP Middleware" section below if embedding external content (iframes, images, scripts, fonts, APIs)
+- Follow the "Security considerations" checklist below — especially if the field accepts URLs, IDs, or HTML from the user
 
 ### Step 4: Build and Verify
 
@@ -246,23 +255,34 @@ If build fails, read the error output, fix the issue, and rebuild. Common issues
 - Missing icon import (check icon name exists in `@strapi/icons`)
 - TypeScript errors in the React component
 
+**The build is not optional.** A plugin wired into a Strapi app via a local `resolve:` path (Step 5) is loaded from its `dist/` output — Strapi will not load an unbuilt plugin. Always run `npm run build` before starting the Strapi app, and rebuild (or use `npm run watch`) after component changes.
+
 ### Step 5: Add Plugin to a Strapi App
 
 If the user provided a Strapi app path in Step 1, or ask now if they want to integrate.
 
-#### 5a. Register the plugin in `config/plugins.ts`
+#### 5a. Register the plugin in `config/plugins.ts` (or `config/plugins.js`)
 
-Read the existing `config/plugins.ts` in the Strapi app (create it if it doesn't exist). Add the plugin entry, preserving any existing plugins:
+Check which config format the app uses — Strapi apps may have `config/plugins.ts` **or** `config/plugins.js`. Edit whichever exists (create `plugins.ts` for TypeScript projects, `plugins.js` for JavaScript projects if neither exists). Add the plugin entry, preserving any existing plugins:
 
 ```typescript
 export default ({ env }) => ({
   // ... existing plugins stay here
-  "<plugin-name>": {
+  "<plugin-id>": {
     enabled: true,
     resolve: "<relative-path-from-strapi-root-to-plugin>",
   },
 });
 ```
+
+The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name` in the plugin's `package.json` — not the npm package name.
+
+**Build first:** The plugin must be built (`npm run build` in the plugin directory) before Strapi can load it via `resolve:` — Strapi loads the compiled `dist/` output, and an unbuilt plugin fails at startup.
+
+**Monorepo / Yarn workspaces:** If the Strapi app lives in a monorepo (e.g., a workspace like `examples/getstarted`), adapt the plugin instead of using the standalone defaults:
+- Place the plugin somewhere inside the workspace tree (e.g., `src/plugins/<plugin-id>/`) and reference it with a relative `resolve:` path.
+- Use workspace-protocol or exact versions in the plugin's `package.json` that match the monorepo's Strapi version (e.g., `"@strapi/strapi": "workspace:*"` for Yarn), so the workspace resolver links against the local packages.
+- Use the monorepo's package manager (`yarn install`, `yarn build`) rather than `npm`.
 
 #### 5b. Update CSP Security Middleware (if needed)
 
@@ -282,9 +302,12 @@ npm run develop
 
 ### Step 6: Summary
 
+Before writing the summary, run through the "Security considerations" checklist below and confirm each point.
+
 ```
 Plugin created at: <output-path>
 Plugin name: <plugin-name>
+Plugin ID: <plugin-id>
 Custom field: <field-name> (type: <field-type>)
 Icon: <icon-name>
 
@@ -303,7 +326,60 @@ Development workflow:
   2. Watch mode: cd <output-path> && npm run watch:link
   3. Start Strapi: cd <strapi-app-path> && npm run develop
   4. Add the custom field to a content type in the Content-Type Builder
+
+Security: External resources added? CSP updated minimally? User input sanitized?
+  Unused content-api routes removed? Values validated beyond admin UI?
+
+Optional — Share your field: If this plugin is meant for other Strapi projects,
+  consider publishing it to the Strapi Marketplace (https://market.strapi.io/).
+  Custom fields are only distributable as plugins. Skip if internal-only.
 ```
+
+### Step 7: Share your field (optional)
+
+Ask the user whether this plugin is for internal use or for distribution.
+
+**Skip if:** demo/learning plugin (e.g., Rick Roll), app-specific field, or user confirmed internal-only. Do not push publishing after every scaffold — local install via npm or `resolve:` is valid for private/team use.
+
+**If distributing to other Strapi projects:**
+
+1. Confirm the plugin is production-ready:
+   - `npm run build` and `npm run verify` pass
+   - The custom field calls `onChange` and persists values correctly
+   - README covers install, configuration, and CSP middleware changes (if applicable)
+   - Plugin ID is the short name (`color-picker`), not the full npm package name
+   - Dependency versions are pinned (no `"*"`)
+   - Unused boilerplate server routes/controllers/services are removed
+
+2. Point the user to Strapi Marketplace submission:
+   - https://market.strapi.io/
+   - Plugin development docs: https://docs.strapi.io/cms/plugins-development/developing-plugins
+
+3. Set expectations:
+   - Marketplace review takes time; the skill cannot handle submission details (screenshots, listing copy, review)
+   - Plugins wired via a local `resolve:` path in a monorepo must be extracted into a standalone package before publishing
+
+## Security considerations
+
+Before finishing (Step 6), review the plugin you created. Custom fields run in the Strapi admin panel (authenticated), but mistakes here can still weaken the admin CSP, expose routes, or allow bad data via the Content API.
+
+**Always consider:**
+
+1. **Minimize external resources** — Do not add iframes, third-party scripts, fonts, or API calls unless the field requires them. If none are needed, skip CSP changes entirely.
+
+2. **CSP: allowlist narrowly** — When updating `config/middlewares.ts`, add only the specific domains required. Do not add broad directives like `'https:'` for `connect-src`, and do not add `'unsafe-inline'` beyond what Strapi's admin already requires. Pasting a full permissive template weakens the admin CSP more than a single embed needs.
+
+3. **Never trust user input for embeds or URLs** — If the field accepts a URL, ID, or HTML from the user, parse and validate it before use. Never assign user input directly to `iframe src`, `href`, `fetch()`, or `dangerouslySetInnerHTML`. Prefer allowlisted embed URL patterns: extract an ID, rebuild a known-safe URL (see the YouTube parser in "Iframe Embed Rules").
+
+4. **Admin UI is not server validation** — The React input controls what editors see, not what the API accepts. Values can still be written via the Content API. For production fields, consider `options.advanced` constraints (min, max, regex — as `@strapi/plugin-color-picker` does) or document that content-type validation is the app's responsibility.
+
+5. **Remove unused server surface** — Custom-field-only plugins usually need only `server/src/register.ts`. Remove or lock down the boilerplate content-api route, controller, and service if the plugin doesn't use them — they are unnecessary attack surface in a published plugin.
+
+6. **Pin dependencies** — Keep the pinned versions from `package.json.template`; never use `"*"`. Do not commit secrets or API keys; use Strapi config / env vars for credentials.
+
+7. **Before Marketplace or wide distribution** — Re-run `npm run verify`, confirm `onChange` persists values correctly, review the CSP diff, and ensure the README documents any required middleware changes.
+
+**When in doubt:** prefer a simpler field (local UI, built-in type, no external calls) over a feature that requires broad CSP exceptions or user-controlled embeds.
 
 ## External Resources & CSP Middleware
 
@@ -330,9 +406,9 @@ When the custom field loads anything from external domains, Strapi's Content Sec
     contentSecurityPolicy: {
       useDefaults: true,
       directives: {
-        'connect-src': ["'self'", 'https:', 'blob:'],
+        'connect-src': ["'self'", 'blob:'],
         'img-src': ["'self'", 'data:', 'blob:', 'market-assets.strapi.io'],
-        'script-src': ["'self'", "'unsafe-inline'"],
+        'script-src': ["'self'"],
         'frame-src': ["'self'"],
         'media-src': ["'self'", 'blob:'],
         'style-src': ["'self'", "'unsafe-inline'"],
@@ -349,7 +425,7 @@ When the custom field loads anything from external domains, Strapi's Content Sec
 },
 ```
 
-Start from this base and add only the domains your plugin needs. Always keep `"'self'"` in every directive. The `referrerPolicy` override is **required** whenever your plugin uses iframes — without it, Strapi sends `Referrer-Policy: no-referrer` which causes embed services to reject the request.
+Start from this base and add only the specific domains your plugin needs — do not paste the template with extra broad directives. Always keep `"'self'"` in every directive. Never add a blanket `'https:'` source (it allows requests to **any** HTTPS origin), and never add `'unsafe-inline'` to `script-src` — `style-src` keeps it only because Strapi's admin (styled-components) requires it. The `referrerPolicy` override is **required** whenever your plugin uses iframes — without it, Strapi sends `Referrer-Policy: no-referrer` which causes embed services to reject the request. If the field loads no external resources at all, leave `config/middlewares.ts` untouched.
 
 ### Common Examples by Plugin Type
 
@@ -375,7 +451,7 @@ Start from this base and add only the domains your plugin needs. Always keep `"'
 
 **External REST API (e.g., weather, geocoding):**
 ```typescript
-'connect-src': ["'self'", 'https:', 'https://api.openweathermap.org'],
+'connect-src': ["'self'", 'https://api.openweathermap.org'],
 'img-src': [..., 'https://openweathermap.org'],
 ```
 
@@ -460,7 +536,9 @@ const toYouTubeEmbedUrl = (url: string): string | null => {
 
 Key constraints:
 - Custom fields cannot create new data types — must use existing Strapi types
+- Custom fields cannot modify how an existing data type behaves — they only provide a custom input UI that reads/writes that type's value; the underlying type's storage, validation, and API behavior stay unchanged
 - Cannot use relation, media, component, or dynamic zone types
+- Custom fields can only be shared with other Strapi projects as plugins (e.g., via the Marketplace) — copying admin component code alone does not distribute a field
 - The `name` must match between server-side and admin-side registration
-- The `plugin` value in server registration must match `pluginId` in admin registration
+- The `plugin` value in server registration must match `pluginId` in admin registration, and both must be the **short plugin ID** (`strapi.name` in `package.json`, e.g. `color-picker`) — not the npm package name
 - **Always set `inputSize`** in server registration — Strapi's edit view uses a 12-column grid and fields default to size 6 (half width). Custom fields should always include `inputSize: { default: 12, isResizable: true }` to render full width by default. Valid sizes: `4`, `6`, `8`, `12`.
