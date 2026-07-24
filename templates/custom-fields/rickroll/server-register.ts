@@ -3,7 +3,7 @@ import type { Core } from "@strapi/strapi";
 const register = ({ strapi }: { strapi: Core.Strapi }) => {
   strapi.customFields.register({
     name: "rickroll",
-    plugin: "strapi-plugin-rickroll",
+    plugin: "rickroll",
     type: "string",
     inputSize: {
       default: 12,

@@ -12,24 +12,26 @@ This skill automates the process of creating a Strapi plugin that adds a custom 
 4. Creates a starter React input component using `@strapi/design-system` and `styled-components`
 5. Configures CSP middleware and `referrerPolicy` for external resources
 6. Builds and verifies the plugin
-7. Optionally integrates with an existing Strapi app
+7. Runs a security-considerations checklist before handing off
+8. Optionally integrates with an existing Strapi app (standalone or monorepo/workspace)
+9. Optionally points you at Strapi Marketplace distribution for reusable fields
 
 ## Installation
 
-Copy the `strapi-custom-field` folder into your Claude Code skills directory:
+The root of this repository **is** the skill (`SKILL.md` at the top level). Clone it into your Claude Code skills directory:
 
 ```bash
 # Global install (available in all projects)
-cp -r strapi-custom-field ~/.claude/skills/strapi-custom-field
+git clone https://github.com/PaulBratslavsky/strapi-custom-fields-skill.git ~/.claude/skills/strapi-custom-field
 
 # Or project-level install
-cp -r strapi-custom-field .claude/skills/strapi-custom-field
+git clone https://github.com/PaulBratslavsky/strapi-custom-fields-skill.git .claude/skills/strapi-custom-field
 ```
 
-Or install the packaged `.skill` file:
+If you already have a local copy, copy the repository contents (not a subfolder) into the skills directory:
 
 ```bash
-claude install-skill strapi-custom-field.skill
+cp -r strapi-custom-fields-skill ~/.claude/skills/strapi-custom-field
 ```
 
 ## Usage
@@ -57,12 +59,13 @@ Claude will walk you through the setup, asking for:
 | Parameter       | Example                          |
 | --------------- | -------------------------------- |
 | Plugin name     | `strapi-plugin-color-picker`     |
+| Plugin ID       | `color-picker` (short — the npm name without the `strapi-plugin-` prefix) |
 | Field name      | `color-picker`                   |
 | Display name    | `Color Picker`                   |
 | Description     | `Pick a color using a color wheel` |
 | Field type      | `string`, `json`, `text`, `integer`, or `boolean` |
 | Icon            | `PaintBrush`                     |
-| Template        | `string-field`, `json-field`, `text-field`, or `rickroll` |
+| Template        | `string-field`, `json-field`, `text-field`, `integer-field`, `boolean-field`, or `rickroll` |
 | Output path     | `./plugins/strapi-plugin-color-picker` |
 
 ## Skill Structure
@@ -141,12 +144,24 @@ strapi-custom-field/
         │   ├── server-register.ts
         │   └── component/
         │       └── JsonField.tsx
-        └── text-field/                   # Textarea
+        ├── text-field/                   # Textarea
+        │   ├── README.md
+        │   ├── admin-index.ts
+        │   ├── server-register.ts
+        │   └── component/
+        │       └── TextField.tsx
+        ├── integer-field/                # NumberInput
+        │   ├── README.md
+        │   ├── admin-index.ts
+        │   ├── server-register.ts
+        │   └── component/
+        │       └── IntegerField.tsx
+        └── boolean-field/                # Toggle
             ├── README.md
             ├── admin-index.ts
             ├── server-register.ts
             └── component/
-                └── TextField.tsx
+                └── BooleanField.tsx
 ```
 
 ## Custom Field Templates
@@ -159,6 +174,8 @@ Pre-built templates in `templates/custom-fields/`. Each provides 3 override file
 | `string-field` | string | Generic TextInput for short text, colors, codes |
 | `json-field` | json | JSON editor with styled-components layout (FieldColumn, SideBySideRow) |
 | `text-field` | text | Textarea for long text, markdown |
+| `integer-field` | integer | NumberInput for counts, ratings, numeric values |
+| `boolean-field` | boolean | Toggle for flags and on/off values |
 
 All server-register templates include `inputSize: { default: 12, isResizable: true }` for full-width field rendering in the Content-Type Builder.
 
@@ -236,12 +253,18 @@ When your custom field loads external content (iframes, images, scripts, fonts),
 
 See SKILL.md for the full middleware template and per-service examples.
 
+## Security
+
+The skill runs a security checklist before finishing each scaffold (see "Security considerations" in SKILL.md): minimize external resources, allowlist CSP domains narrowly, never pass user input to iframe/URL sinks, remember that admin UI constraints are not server-side validation, remove unused boilerplate server routes, and keep dependency versions pinned.
+
 ## After Scaffolding
 
-1. **Customize the component** — Edit `admin/src/components/custom-field/<Name>/index.tsx`
-2. **Watch mode** — `cd <plugin-path> && npm run watch:link`
-3. **Start Strapi** — `cd <strapi-app-path> && npm run develop`
-4. **Add the field** — Open the Content-Type Builder and add your custom field to a content type
+1. **Build the plugin** — `cd <plugin-path> && npm run build` (required — Strapi won't load an unbuilt plugin via a local `resolve:` path)
+2. **Customize the component** — Edit `admin/src/components/custom-field/<Name>/index.tsx`
+3. **Watch mode** — `cd <plugin-path> && npm run watch:link`
+4. **Start Strapi** — `cd <strapi-app-path> && npm run develop`
+5. **Add the field** — Open the Content-Type Builder and add your custom field to a content type
+6. **Optional: share it** — Reusable fields can be published to the [Strapi Marketplace](https://market.strapi.io/); custom fields are only distributable as plugins
 
 ## Resources
 
