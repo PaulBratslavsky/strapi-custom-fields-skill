@@ -55,7 +55,11 @@ First, ask whether the user wants to start from an example template or from scra
    - `text-field` — Textarea for long text content
    - `integer-field` — Number input for counts, ratings, numeric values
    - `boolean-field` — Toggle for flags and on/off values
+   - `color-picker` — Working example: color swatch + hex input (string)
+   - `star-rating` — Working example: interactive 1–5 star buttons (integer)
    - Or skip to generate from scratch using `references/boilerplate.md`
+
+   If the user's request closely matches one of the working examples (a color field, a rating field), prefer that template over the generic one — it ships a complete interactive UI instead of a starter input.
 
 **Always ask:**
 
@@ -123,7 +127,7 @@ The base scaffold generates a generic plugin. Now apply the custom field overrid
 
 #### Option A: Using a template from `templates/custom-fields/`
 
-If the user chose a template (rickroll, string-field, json-field, text-field, integer-field, or boolean-field), copy the 3 override files from that template:
+If the user chose a template (rickroll, string-field, json-field, text-field, integer-field, boolean-field, color-picker, or star-rating), copy the 3 override files from that template:
 
 1. `templates/custom-fields/<template>/server-register.ts` → `<output-path>/server/src/register.ts`
 2. `templates/custom-fields/<template>/admin-index.ts` → `<output-path>/admin/src/index.ts`

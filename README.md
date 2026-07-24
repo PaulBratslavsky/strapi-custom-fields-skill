@@ -65,7 +65,7 @@ Claude will walk you through the setup, asking for:
 | Description     | `Pick a color using a color wheel` |
 | Field type      | `string`, `json`, `text`, `integer`, or `boolean` |
 | Icon            | `PaintBrush`                     |
-| Template        | `string-field`, `json-field`, `text-field`, `integer-field`, `boolean-field`, or `rickroll` |
+| Template        | `string-field`, `json-field`, `text-field`, `integer-field`, `boolean-field`, `color-picker`, `star-rating`, or `rickroll` |
 | Output path     | `./plugins/strapi-plugin-color-picker` |
 
 ## Skill Structure
@@ -156,12 +156,24 @@ strapi-custom-field/
         │   ├── server-register.ts
         │   └── component/
         │       └── IntegerField.tsx
-        └── boolean-field/                # Toggle
+        ├── boolean-field/                # Toggle
+        │   ├── README.md
+        │   ├── admin-index.ts
+        │   ├── server-register.ts
+        │   └── component/
+        │       └── BooleanField.tsx
+        ├── color-picker/                 # Working example: swatch + hex input
+        │   ├── README.md
+        │   ├── admin-index.ts
+        │   ├── server-register.ts
+        │   └── component/
+        │       └── ColorPickerField.tsx
+        └── star-rating/                  # Working example: 1–5 star buttons
             ├── README.md
             ├── admin-index.ts
             ├── server-register.ts
             └── component/
-                └── BooleanField.tsx
+                └── StarRatingField.tsx
 ```
 
 ## Custom Field Templates
@@ -176,6 +188,8 @@ Pre-built templates in `templates/custom-fields/`. Each provides 3 override file
 | `text-field` | text | Textarea for long text, markdown |
 | `integer-field` | integer | NumberInput for counts, ratings, numeric values |
 | `boolean-field` | boolean | Toggle for flags and on/off values |
+| `color-picker` | string | Working example: native color swatch + hex input |
+| `star-rating` | integer | Working example: interactive 1–5 star buttons, click-to-clear |
 
 All server-register templates include `inputSize: { default: 12, isResizable: true }` for full-width field rendering in the Content-Type Builder.
 
