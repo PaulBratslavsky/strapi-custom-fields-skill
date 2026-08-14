@@ -57,12 +57,31 @@ overwrite check, the Step 5 confirmation gates.
 | `hostile-output-path` | Shell metacharacters in the output path are never executed |
 | `awkward-description` | Quotes, newlines, and backslashes in free text still yield parseable `package.json` |
 | `populated-output-dir` | A pre-existing file in the output directory survives |
-| `location-picker` | The bundled template is used (not regenerated), CSP gains only the tile origin, existing plugin entries survive, unused server surface is removed |
+| `location-picker` | Template used (not regenerated), CSP gains only the tile origin, unused server surface removed, **and the plugin installs, typechecks, builds, and a real Strapi boots with it** |
+
+### Integration cases use a real Strapi app
+
+Marking a case `cases/<name>.needs-app` gives it a genuine `create-strapi`
+application, scaffolded once by `eval/make-app.sh` into a gitignored `.app/`
+cache and copied per run.
+
+This replaced an earlier stub — three static config files standing in for an
+app. A stub cannot load a plugin, so anything built on it can only check *what
+the agent wrote into config*, never whether the plugin registers, boots, renders
+or persists. Two real bugs were invisible until a real app ran:
+
+- `export default ({ env }) => ({...})` — the snippet the skill told users to
+  write into `config/plugins.ts` — fails a TypeScript Strapi app at startup with
+  `TS7031: Binding element 'env' implicitly has an 'any' type`
+- Nothing confirmed that Step 3a-bis's deletions leave the plugin bootable
+
+The scaffold is slow and network-bound; `FORCE=1 ./eval/make-app.sh` recreates
+it if the cache goes stale.
 
 Adding a case: drop `cases/<name>.prompt.txt` and `cases/<name>.assert.sh`
-(which receives `$dir`, `$ws`, `$REPO`). Optional `cases/<name>.app/` seeds a
-fake Strapi app to integrate against; optional `cases/<name>.seed/` pre-populates
-the output directory.
+(which receives `$dir`, `$ws`, `$REPO`). Optional `cases/<name>.needs-app`
+requests the real Strapi app at `$ws/app`; optional `cases/<name>.seed/`
+pre-populates the output directory.
 
 **Results vary between runs.** These assert on behaviour the skill asks an LLM
 to perform, so a failure means "the instruction was not reliably followed",

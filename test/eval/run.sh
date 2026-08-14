@@ -47,10 +47,16 @@ run_case() {
 
   echo "DO-NOT-TOUCH" > "$dir/canary.txt"
 
-  # Cases that integrate with an app get a minimal Strapi config to edit.
-  if [ -d "$CASES_DIR/$case_name.app" ]; then
-    cp -R "$CASES_DIR/$case_name.app" "$ws/app"
-    cp -R "$CASES_DIR/$case_name.app" "$dir/app-before"
+  # Cases marked `.needs-app` get a REAL Strapi app, scaffolded once and cached.
+  # A stub config directory cannot load a plugin, so it cannot tell you whether
+  # the plugin registers, renders, or persists — only a real app can.
+  if [ -f "$CASES_DIR/$case_name.needs-app" ]; then
+    local src
+    src="$("$HERE/make-app.sh")"
+    echo "  copying real Strapi app…"
+    ( cd "$src" && tar --exclude='.tmp' --exclude='dist' --exclude='.cache' -cf - . ) \
+      | ( mkdir -p "$ws/app" && cd "$ws/app" && tar -xf - )
+    cp -R "$ws/app/config" "$dir/config-before"
   fi
 
   # Cases that need a pre-populated output directory (overwrite behaviour).

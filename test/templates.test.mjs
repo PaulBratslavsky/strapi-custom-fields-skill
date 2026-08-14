@@ -322,6 +322,20 @@ describe("docs match the templates on disk", () => {
     }
   });
 
+  test("the config/plugins.ts snippet compiles under noImplicitAny", () => {
+    // Verified against a real Strapi 5.52 TS app: an unused `({ env })`
+    // parameter fails the dev server with
+    // "TS7031: Binding element 'env' implicitly has an 'any' type".
+    const snippet = SKILL.match(
+      /```typescript\nexport default[^\n]*\n(?:.*\n)*?```/
+    )?.[0];
+    assert.ok(snippet, "could not locate the config/plugins.ts snippet");
+    assert.ok(
+      !/export default \(\{\s*env\s*\}\)\s*=>/.test(snippet),
+      "the plugins.ts snippet destructures an untyped `env`, which fails TypeScript apps at startup"
+    );
+  });
+
   test("SKILL.md Step 4 runs the typecheck", () => {
     // The build alone exits 0 on a nonexistent icon import; only tsc catches it.
     assert.match(

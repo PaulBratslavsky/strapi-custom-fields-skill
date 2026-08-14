@@ -390,7 +390,7 @@ directives, and comments.
 Check which config format the app uses — Strapi apps may have `config/plugins.ts` **or** `config/plugins.js`. Edit whichever exists (create `plugins.ts` for TypeScript projects, `plugins.js` for JavaScript projects if neither exists). Add the plugin entry, preserving any existing plugins:
 
 ```typescript
-export default ({ env }) => ({
+export default () => ({
   // ... existing plugins stay here
   "<plugin-id>": {
     enabled: true,
@@ -398,6 +398,20 @@ export default ({ env }) => ({
   },
 });
 ```
+
+**Do not add an `env` parameter you don't use.** A TypeScript Strapi app compiles
+`config/` under `noImplicitAny`, so writing `export default ({ env }) => ({...})`
+in a file that would otherwise not have it fails the dev server at startup:
+
+```text
+config/plugins.ts:1:19 - error TS7031: Binding element 'env' implicitly has an 'any' type.
+[ERROR] Error during development: TypeScript compilation failed
+```
+
+A plugin `resolve:` entry needs no environment lookup, so the no-argument form
+above is correct. If you are merging into a file that **already** destructures
+`env`, leave its signature exactly as you found it — it is already typed, or the
+project already compiles with it.
 
 The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name` in the plugin's `package.json` — not the npm package name.
 
