@@ -1,0 +1,16 @@
+Use the strapi-custom-field skill to scaffold a Strapi v5 custom field plugin.
+
+I want a location picker: the editor sees an interactive map, clicks a point,
+and the field stores the picked coordinates. Here are the answers to the
+skill's questions:
+
+- Plugin name: strapi-plugin-location-picker
+- Custom field name: location-picker
+- Display name: Location Picker
+- Description: Pick a location on a map and store its coordinates
+- Field type: json
+- Icon: PinMap
+- Output path: ./out
+- Strapi app path: ./app
+
+Do the full skill including the app integration step. Skip npm install and the build.

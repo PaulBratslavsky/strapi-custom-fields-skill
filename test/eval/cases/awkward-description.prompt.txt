@@ -1,0 +1,14 @@
+Use the strapi-custom-field skill to scaffold a Strapi v5 custom field plugin.
+Here are all the answers to the skill's questions:
+
+- Plugin name: strapi-plugin-quote-field
+- Custom field name: quote-field
+- Display name: The "Quote" Field
+- Description: Stores a quote. Editors say "it's useful" — supports \ backslashes.
+- Field type: string
+- Icon: Quote
+- Template: string-field
+- Output path: ./out
+- Strapi app path: none, skip the app integration step
+
+Stop after the files are generated. Skip npm install and skip the build step.

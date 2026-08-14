@@ -49,22 +49,66 @@ First, ask whether the user wants to start from an example template or from scra
    - `integer` — Counts, ratings, numeric values
    - `boolean` — Toggles, flags
 6. **Icon** — `@strapi/icons` icon name (e.g., `PaintBrush`, `PinMap`, `Star`). Browse at https://design-system-git-main-strapijs.vercel.app/
-7. **Template** (optional) — Start from a pre-built template in `templates/custom-fields/`:
+7. **Template** (optional) — Start from a pre-built template in `templates/custom-fields/`.
+
+   **Generic starters** — a single input wired up correctly, for you to build on:
    - `string-field` — Generic string input with TextInput
    - `json-field` — JSON editor with internal state management
    - `text-field` — Textarea for long text content
    - `integer-field` — Number input for counts, ratings, numeric values
    - `boolean-field` — Toggle for flags and on/off values
-   - `color-picker` — Working example: color swatch + hex input (string)
-   - `star-rating` — Working example: interactive 1–5 star buttons (integer)
-   - Or skip to generate from scratch using `references/boilerplate.md`
 
-   If the user's request closely matches one of the working examples (a color field, a rating field), prefer that template over the generic one — it ships a complete interactive UI instead of a starter input.
+   **Working examples** — complete interactive fields, integration-tested:
+   - `color-picker` — Color swatch + hex input (string)
+   - `star-rating` — Interactive 1–5 star buttons (integer)
+   - `location-picker` — Pan/zoom/click map with lat-lng inputs (json). The most
+     complex example; also the reference for a field that loads external
+     resources. Requires one `img-src` CSP entry — see Step 5b.
+   - `rickroll` — Hardcoded YouTube embed (string). A learning example, not a
+     production field.
+
+   **Always prefer a working example when the request matches one.** A color
+   field, a rating field, or anything map- or location-shaped should start from
+   the example rather than a generic starter — the example ships a complete,
+   tested UI, and generating an equivalent from scratch produces hundreds of
+   lines of unreviewed code that differ on every run.
+
+   Or skip templates entirely and generate from scratch using
+   `references/boilerplate.md` — appropriate when nothing above is close.
 
 **Always ask:**
 
 8. **Output path** — Where to create the plugin directory.
 9. **Strapi app path** (optional) — Path to an existing Strapi project to integrate with.
+
+### Step 1b: Normalize the identifiers before using them
+
+Three of the answers above become identifiers that Strapi, npm, and the
+filesystem each have their own rules about. Check them once, here, rather than
+discovering a problem after twenty files are on disk.
+
+| Value | Must match | Why |
+|---|---|---|
+| Plugin name | `^strapi-plugin-[a-z0-9]+(-[a-z0-9]+)*$` | It is an npm package name — `..`, `/`, spaces, and uppercase are all illegal |
+| Plugin ID (derived) | `^[a-z0-9]+(-[a-z0-9]+)*$` | Becomes `strapi.name`, the `config/plugins` key, and part of the admin route |
+| Custom field name | `^[a-z0-9]+(-[a-z0-9]+)*$` | PascalCased into `<ComponentName>`, which becomes a **directory name** |
+
+**If a value doesn't match, do not silently rewrite it.** Say what was wrong,
+state the normalized value you propose, and let the user confirm or replace it
+before continuing:
+
+> `strapi-plugin-My_Field` isn't a valid npm package name (`_` and uppercase
+> aren't allowed). I'd use `strapi-plugin-my-field`, plugin ID `my-field`. OK,
+> or would you rather pick a different name?
+
+Normalizing without telling the user is the failure mode to avoid: the plugin ID
+is written into five files and the app's `config/plugins`, so a rename they
+didn't notice surfaces later as a plugin that won't load.
+
+**The output path is the one value that gets interpolated into a shell command**
+(`cd <output-path>` in Steps 2c and 4). Use it as a literal path. If it contains
+shell metacharacters — `;`, `|`, `&`, `$`, backticks, newlines — stop and ask,
+rather than passing it through to a shell.
 
 ### Step 2: Generate Plugin from Templates
 
@@ -72,9 +116,16 @@ Copy all files from `templates/plugin-base/` to the output directory. This provi
 
 #### 2a. Copy the base scaffold
 
+**First, check whether `<output-path>` already exists and is non-empty.** If it
+is, list what's in it and ask before writing — scaffolding over an existing
+directory merges two plugins into one tree, and the leftovers from the old one
+are hard to spot afterwards. Offer to delete and start clean, or to pick a
+different path. Only proceed without asking when the directory is absent or
+empty.
+
 Copy the entire `templates/plugin-base/` directory tree to `<output-path>/`:
 
-```
+```text
 templates/plugin-base/admin/    →  <output-path>/admin/
 templates/plugin-base/server/   →  <output-path>/server/
 templates/plugin-base/.editorconfig, .eslintignore, .gitignore, .prettierrc, .prettierignore
@@ -100,7 +151,16 @@ Read `templates/plugin-base/package.json.template` and replace all placeholders:
 | `{{DISPLAY_NAME}}` | Display name (e.g., `Color Picker`) |
 | `{{DESCRIPTION}}` | Description text |
 
-Write the result as `<output-path>/package.json`.
+`{{DISPLAY_NAME}}` and `{{DESCRIPTION}}` are free text, and they are substituted
+into a JSON file. Escape them as JSON string contents — a `"`, `\`, or newline
+pasted in raw produces a `package.json` that no longer parses, which then fails
+at `npm install` with a message that points at the file rather than at the
+description the user typed. `{{PKG_NAME}}` and `{{PLUGIN_ID}}` are already
+constrained by Step 1b and need no escaping.
+
+Write the result as `<output-path>/package.json`, then confirm it parses (for
+example `node -e "JSON.parse(require('fs').readFileSync('<output-path>/package.json'))"`)
+before moving on.
 
 **Important — dependency versions:** The template ships with pinned version ranges for Strapi packages. If the plugin will be integrated into an existing Strapi app (Step 5), align the versions with that app first: read the app's `package.json` and use the same `@strapi/strapi` version range so the plugin builds against the same APIs. In a monorepo with workspaces, use the workspace protocol (e.g., `"@strapi/strapi": "workspace:*"` for Yarn) instead. Never widen versions back to `"*"` — unpinned versions resolve to whatever is latest at install time, which breaks reproducibility and can pull in incompatible majors. Then install:
 
@@ -127,13 +187,50 @@ The base scaffold generates a generic plugin. Now apply the custom field overrid
 
 #### Option A: Using a template from `templates/custom-fields/`
 
-If the user chose a template (rickroll, string-field, json-field, text-field, integer-field, boolean-field, color-picker, or star-rating), copy the 3 override files from that template:
+If the user chose a template (rickroll, string-field, json-field, text-field, integer-field, boolean-field, color-picker, star-rating, or location-picker), copy the override files from that template:
 
 1. `templates/custom-fields/<template>/server-register.ts` → `<output-path>/server/src/register.ts`
 2. `templates/custom-fields/<template>/admin-index.ts` → `<output-path>/admin/src/index.ts`
-3. `templates/custom-fields/<template>/component/<ComponentName>.tsx` → `<output-path>/admin/src/components/custom-field/<ComponentName>/index.tsx`
+3. Everything in `templates/custom-fields/<template>/component/` → `<output-path>/admin/src/components/custom-field/<ComponentName>/`
+
+For (3), the `*Field.tsx` file is the component entry and is renamed to
+`index.tsx`. Any **other** file in `component/` is a supporting module and keeps
+its own name. Most templates have one file; `location-picker` has two
+(`LocationPickerField.tsx` → `index.tsx`, plus `tileMath.ts` copied as-is).
+Copy the whole directory rather than assuming a single file, or the component
+will fail to build on a missing import.
 
 **Note:** Copying `admin-index.ts` over `admin/src/index.ts` replaces the base scaffold's admin entry entirely — including its menu link and admin page registration. This is intentional for custom-field-only plugins (they don't need an admin page), but if the user also wants a plugin settings/admin page, merge the custom field registration into the existing `admin/src/index.ts` instead of overwriting it.
+
+#### 3a-bis. Remove the unused base scaffold surface
+
+`templates/plugin-base/` is a general-purpose plugin scaffold, so it ships a
+server API and an admin page that a custom-field-only plugin never uses. Once
+`admin/src/index.ts` has been replaced above, these files are unreachable — the
+admin entry no longer registers a page, and nothing routes to the server
+controller. Leaving them in means shipping a live content-api route the plugin
+doesn't need, which is what the "Security considerations" checklist below means
+by unused server surface.
+
+Unless the user asked for a plugin admin page or a server API, delete:
+
+```text
+<output-path>/admin/src/pages/               (App.tsx, HomePage.tsx)
+<output-path>/server/src/controllers/        (index.ts, controller.ts)
+<output-path>/server/src/routes/             (index.ts, admin/, content-api/)
+<output-path>/server/src/services/           (index.ts, service.ts)
+<output-path>/server/src/policies/
+<output-path>/server/src/middlewares/
+<output-path>/server/src/content-types/
+```
+
+Then edit `<output-path>/server/src/index.ts` to drop the corresponding imports
+and exports, leaving `register`, `bootstrap`, `destroy`, and `config`. Run
+`npm run typecheck` (Step 4) afterwards — it will fail loudly on any import you
+missed, which is the point.
+
+**Tell the user what you deleted**, in one line. If they do want an admin page or
+server API, skip this step and say so instead.
 
 **For the rickroll template:** Files are pre-filled with real values — no placeholder replacement needed. The component directory name should be `RickRollField`.
 
@@ -247,19 +344,46 @@ The component must:
 ```bash
 cd <output-path>
 npm install
+npm run typecheck
 npm run build
 npm run verify
 ```
 
-If build fails, read the error output, fix the issue, and rebuild. Common issues:
-- Missing icon import (check icon name exists in `@strapi/icons`)
-- TypeScript errors in the React component
+**Run `npm run typecheck` before `npm run build` — the build alone is not a
+correctness check.** `strapi-plugin build` bundles with Vite, which resolves a
+missing named export to `undefined` and still exits 0. The most common way this
+bites: a misspelled or non-existent `@strapi/icons` name. The build succeeds, the
+plugin loads, and the only symptom is an empty icon slot next to the field in the
+Content-Type Builder — no error anywhere. `tsc` catches it as
+`TS2305: Module '"@strapi/icons"' has no exported member '<Name>'`.
+
+`npm run verify` checks `package.json` metadata and the `exports` map. It does
+**not** need a running Strapi instance, and it does not execute component code —
+so it cannot catch the icon problem either.
+
+If a step fails, read the error output, fix the issue, and re-run. Common issues:
+- `TS2305` on an icon import — the icon name doesn't exist in `@strapi/icons`.
+  Check the name at https://design-system-git-main-strapijs.vercel.app/
+- Other TypeScript errors in the React component
+- `sh: strapi-plugin: command not found` — `npm install` didn't complete
+
+**If you need to start over:** delete `<output-path>` entirely before
+re-scaffolding. A partial scaffold left from a failed run shadows the problem —
+stale files survive the re-copy and produce errors that don't match the current
+templates. Tell the user which directory you are deleting before you delete it.
 
 **The build is not optional.** A plugin wired into a Strapi app via a local `resolve:` path (Step 5) is loaded from its `dist/` output — Strapi will not load an unbuilt plugin. Always run `npm run build` before starting the Strapi app, and rebuild (or use `npm run watch`) after component changes.
 
 ### Step 5: Add Plugin to a Strapi App
 
 If the user provided a Strapi app path in Step 1, or ask now if they want to integrate.
+
+**This step edits files in a project you did not create.** `config/plugins.ts`
+and `config/middlewares.ts` are hand-maintained files that usually already have
+content worth keeping. For each one: read it first, show the user the change you
+intend to make, and apply it only after they agree. Never rewrite either file
+wholesale — merge into what's there, preserving existing plugin entries,
+directives, and comments.
 
 #### 5a. Register the plugin in `config/plugins.ts` (or `config/plugins.js`)
 
@@ -282,7 +406,12 @@ The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name
 **Monorepo / Yarn workspaces:** If the Strapi app lives in a monorepo (e.g., a workspace like `examples/getstarted`), adapt the plugin instead of using the standalone defaults:
 - Place the plugin somewhere inside the workspace tree (e.g., `src/plugins/<plugin-id>/`) and reference it with a relative `resolve:` path.
 - Use workspace-protocol or exact versions in the plugin's `package.json` that match the monorepo's Strapi version (e.g., `"@strapi/strapi": "workspace:*"` for Yarn), so the workspace resolver links against the local packages.
-- Use the monorepo's package manager (`yarn install`, `yarn build`) rather than `npm`.
+- Use the monorepo's package manager rather than assuming `npm`. Detect it from
+  the app's `packageManager` field or its lockfile — `yarn.lock` → `yarn`,
+  `pnpm-lock.yaml` → `pnpm`, `package-lock.json` → `npm` — and use that
+  everywhere, including the Step 4 build commands. The workspace dependency
+  protocol differs too: `workspace:*` for Yarn and pnpm, `"*"` resolved by npm
+  workspaces.
 
 #### 5b. Update CSP Security Middleware (if needed)
 
@@ -304,7 +433,7 @@ npm run develop
 
 Before writing the summary, run through the "Security considerations" checklist below and confirm each point.
 
-```
+```text
 Plugin created at: <output-path>
 Plugin name: <plugin-name>
 Plugin ID: <plugin-id>
@@ -320,6 +449,11 @@ Generated files (from templates):
 Strapi integration:
   config/plugins.ts                          — Plugin enabled with resolve path
   config/middlewares.ts                      — CORS/CSP updated (if applicable)
+
+Checks run:
+  npm run typecheck                          — passed (catches bad icon names)
+  npm run build                              — passed
+  npm run verify                             — passed
 
 Development workflow:
   1. Customize the React component in admin/src/components/custom-field/<Name>/index.tsx
@@ -367,7 +501,7 @@ Before finishing (Step 6), review the plugin you created. Custom fields run in t
 
 1. **Minimize external resources** — Do not add iframes, third-party scripts, fonts, or API calls unless the field requires them. If none are needed, skip CSP changes entirely.
 
-2. **CSP: allowlist narrowly** — When updating `config/middlewares.ts`, add only the specific domains required. Do not add broad directives like `'https:'` for `connect-src`, and do not add `'unsafe-inline'` beyond what Strapi's admin already requires. Pasting a full permissive template weakens the admin CSP more than a single embed needs.
+2. **CSP: allowlist narrowly** — When updating `config/middlewares.ts`, add only the specific domains required. Each entry must be a concrete origin (`https://tile.openstreetmap.org`), not a wildcard (`https://*.example.com`), not a bare scheme (`'https:'`), and not `'unsafe-inline'` beyond what Strapi's admin already requires. If you cannot name the exact host a resource loads from, find out before editing the CSP rather than widening a directive to cover it. Show the user the diff before writing. Pasting a full permissive template weakens the admin CSP more than a single embed needs.
 
 3. **Never trust user input for embeds or URLs** — If the field accepts a URL, ID, or HTML from the user, parse and validate it before use. Never assign user input directly to `iframe src`, `href`, `fetch()`, or `dangerouslySetInnerHTML`. Prefer allowlisted embed URL patterns: extract an ID, rebuild a known-safe URL (see the YouTube parser in "Iframe Embed Rules").
 
@@ -435,6 +569,13 @@ Start from this base and add only the specific domains your plugin needs — do 
 'img-src': [..., 'img.youtube.com', 'i.ytimg.com', 'i.vimeocdn.com'],
 ```
 
+**Raster map tiles (the `location-picker` template):**
+```typescript
+'img-src': ["'self'", 'data:', 'blob:', 'market-assets.strapi.io', 'https://tile.openstreetmap.org'],
+```
+Tiles are plain images, so this is the only directive that changes — no
+`script-src`, `frame-src`, or `connect-src` entry is needed.
+
 **Google Maps / Mapbox:**
 ```typescript
 'frame-src': ["'self'", 'https://www.google.com'],
@@ -472,10 +613,16 @@ YouTube and other embed services require a referrer to validate requests. Withou
 <iframe
   src="https://www.youtube.com/embed/VIDEO_ID"
   referrerPolicy="strict-origin-when-cross-origin"
-  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+  allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
   allowFullScreen
 />
 ```
+
+**Grant only the `allow` permissions the embed needs.** The list above is the
+baseline for a video player. Do not add `clipboard-write`, `web-share`,
+`camera`, `microphone`, or `geolocation` to a read-only embed — a player that
+only plays video has no use for them, and `allow` is what delegates those
+capabilities to the third-party frame.
 
 **Always use the embed/player URL, never the regular page URL.**
 

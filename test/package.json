@@ -1,0 +1,11 @@
+{
+  "name": "strapi-custom-field-skill-tests",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Dev-only tests for the skill. Not part of the skill itself.",
+  "scripts": {
+    "test": "node --test",
+    "test:eval": "./eval/run.sh"
+  }
+}
