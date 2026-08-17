@@ -31,7 +31,7 @@
     "verify": "strapi-plugin verify",
     "test:ts:front": "tsc -p admin/tsconfig.json --noEmit",
     "test:ts:back": "tsc -p server/tsconfig.json --noEmit",
-    "typecheck": "npm run test:ts:front && npm run test:ts:back"
+    "typecheck": "tsc -p admin/tsconfig.json --noEmit && tsc -p server/tsconfig.json --noEmit"
   },
   "dependencies": {},
   "devDependencies": {

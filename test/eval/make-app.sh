@@ -13,7 +13,10 @@ APP="${STRAPI_APP_CACHE:-$HERE/.app}"
 
 if [ "${FORCE:-0}" = "1" ]; then rm -rf "$APP"; fi
 
-if [ -f "$APP/package.json" ]; then
+# A completion marker, not package.json: a create-strapi run that dies partway
+# still leaves package.json behind, and reusing that half-built app produces
+# confusing failures in every case that depends on it.
+if [ -f "$APP/.scaffold-complete" ]; then
   echo "$APP"
   exit 0
 fi
@@ -26,7 +29,10 @@ export npm_config_fetch_retries=6
 export npm_config_fetch_retry_maxtimeout=180000
 
 # --quickstart uses SQLite, so no database service is needed.
-( cd "$(dirname "$APP")" && npx -y create-strapi@latest "$(basename "$APP")" \
+# Pinned rather than @latest: the generated app and CLI flags change between
+# releases, and a test suite should not silently start testing a different app.
+( cd "$(dirname "$APP")" && npx -y "create-strapi@${STRAPI_VERSION:-5.52.0}" "$(basename "$APP")" \
     --quickstart --skip-cloud --no-run --use-npm --ts ) >&2
 
+touch "$APP/.scaffold-complete"
 echo "$APP"

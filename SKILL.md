@@ -83,7 +83,7 @@ First, ask whether the user wants to start from an example template or from scra
 
 ### Step 1b: Normalize the identifiers before using them
 
-Three of the answers above become identifiers that Strapi, npm, and the
+Several of the answers above become identifiers that Strapi, npm, and the
 filesystem each have their own rules about. Check them once, here, rather than
 discovering a problem after twenty files are on disk.
 
@@ -92,6 +92,20 @@ discovering a problem after twenty files are on disk.
 | Plugin name | `^strapi-plugin-[a-z0-9]+(-[a-z0-9]+)*$` | It is an npm package name — `..`, `/`, spaces, and uppercase are all illegal |
 | Plugin ID (derived) | `^[a-z0-9]+(-[a-z0-9]+)*$` | Becomes `strapi.name`, the `config/plugins` key, and part of the admin route |
 | Custom field name | `^[a-z0-9]+(-[a-z0-9]+)*$` | PascalCased into `<ComponentName>`, which becomes a **directory name** |
+| Field type | exactly one of `string`, `text`, `json`, `integer`, `boolean` | Written unquoted-adjacent into `type: "<field-type>"` in two files and into the component's `onChange` |
+| Icon name | `^[A-Za-z][A-Za-z0-9]*$`, **and** a real export of `@strapi/icons` | Becomes both an `import { X }` and a bare identifier `icon: X` |
+
+**Check the icon name against the installed package**, not just the pattern —
+this is the one identifier whose mistakes are invisible:
+
+```bash
+node -e "console.log(Object.keys(require('@strapi/icons')).includes('<IconName>'))"
+```
+
+A name that isn't exported still **builds successfully** (see Step 4), so
+nothing downstream will catch it. If the plugin's dependencies aren't installed
+yet, check the name at https://design-system-git-main-strapijs.vercel.app/
+before writing it.
 
 **If a value doesn't match, do not silently rewrite it.** Say what was wrong,
 state the normalized value you propose, and let the user confirm or replace it
@@ -105,10 +119,41 @@ Normalizing without telling the user is the failure mode to avoid: the plugin ID
 is written into five files and the app's `config/plugins`, so a rename they
 didn't notice surfaces later as a plugin that won't load.
 
-**The output path is the one value that gets interpolated into a shell command**
-(`cd <output-path>` in Steps 2c and 4). Use it as a literal path. If it contains
-shell metacharacters — `;`, `|`, `&`, `$`, backticks, newlines — stop and ask,
-rather than passing it through to a shell.
+**Paths are the values that reach a shell.** `<output-path>` is interpolated
+into `cd`, `find`, and the `package.json` check below; `<strapi-app-path>` is
+interpolated in Step 5. Always **quote them** — `cd "<output-path>"` — so
+spaces, globs, redirection, and quoting characters are passed through as data
+rather than interpreted:
+
+```bash
+cd "<output-path>"
+find "<output-path>" -type f -not -path '*/node_modules/*'
+```
+
+Quoting is the fix, not a character blacklist — a list of "bad characters"
+always misses some (`>`, `<`, `*`, `?`, whitespace, `'`, `"`). If a path still
+looks like it contains a command rather than a location, stop and ask which
+directory was meant.
+
+### Step 1c: Pick the package manager
+
+Every command below is written as `<pm>` — substitute the manager the target
+project actually uses, and use the same one throughout. Assuming `npm` breaks
+Yarn and pnpm projects, and mixing managers produces a second lockfile.
+
+Detect it from the Strapi app (or from `<output-path>`'s parent for a
+standalone plugin), in this order:
+
+| Signal | `<pm>` |
+|---|---|
+| `packageManager` field in `package.json` | whatever it names |
+| `yarn.lock` | `yarn` |
+| `pnpm-lock.yaml` | `pnpm` |
+| `bun.lockb` | `bun` |
+| `package-lock.json`, or nothing found | `npm` |
+
+Yarn and pnpm also use `workspace:*` for workspace dependencies; npm workspaces
+use a plain version range instead. This matters in Step 2c and Step 5.
 
 ### Step 2: Generate Plugin from Templates
 
@@ -119,9 +164,14 @@ Copy all files from `templates/plugin-base/` to the output directory. This provi
 **First, check whether `<output-path>` already exists and is non-empty.** If it
 is, list what's in it and ask before writing — scaffolding over an existing
 directory merges two plugins into one tree, and the leftovers from the old one
-are hard to spot afterwards. Offer to delete and start clean, or to pick a
-different path. Only proceed without asking when the directory is absent or
-empty.
+are hard to spot afterwards. Only proceed without asking when the directory is
+absent or empty.
+
+Offer two options: delete the directory and start clean, or scaffold somewhere
+else. **Deleting requires an explicit yes.** Name the exact directory in the
+question, wait for an affirmative answer, and delete only that path. Silence, an
+ambiguous reply, or anything other than clear agreement means do not delete —
+ask for a different output path instead.
 
 Copy the entire `templates/plugin-base/` directory tree to `<output-path>/`:
 
@@ -154,19 +204,19 @@ Read `templates/plugin-base/package.json.template` and replace all placeholders:
 `{{DISPLAY_NAME}}` and `{{DESCRIPTION}}` are free text, and they are substituted
 into a JSON file. Escape them as JSON string contents — a `"`, `\`, or newline
 pasted in raw produces a `package.json` that no longer parses, which then fails
-at `npm install` with a message that points at the file rather than at the
+at install time with a message that points at the file rather than at the
 description the user typed. `{{PKG_NAME}}` and `{{PLUGIN_ID}}` are already
 constrained by Step 1b and need no escaping.
 
 Write the result as `<output-path>/package.json`, then confirm it parses (for
-example `node -e "JSON.parse(require('fs').readFileSync('<output-path>/package.json'))"`)
+example `node -e "JSON.parse(require('fs').readFileSync(process.argv[1]))" "<output-path>/package.json"`)
 before moving on.
 
 **Important — dependency versions:** The template ships with pinned version ranges for Strapi packages. If the plugin will be integrated into an existing Strapi app (Step 5), align the versions with that app first: read the app's `package.json` and use the same `@strapi/strapi` version range so the plugin builds against the same APIs. In a monorepo with workspaces, use the workspace protocol (e.g., `"@strapi/strapi": "workspace:*"` for Yarn) instead. Never widen versions back to `"*"` — unpinned versions resolve to whatever is latest at install time, which breaks reproducibility and can pull in incompatible majors. Then install:
 
 ```bash
-cd <output-path>
-npm install
+cd "<output-path>"
+<pm> install
 ```
 
 #### 2d. Generate `README.md` from template
@@ -178,7 +228,7 @@ Read `templates/plugin-base/README.md.template` and replace `{{PKG_NAME}}` and `
 List the generated files to confirm the structure:
 
 ```bash
-find <output-path> -type f -not -path '*/node_modules/*' -not -path '*/dist/*' | sort
+find "<output-path>" -type f -not -path '*/node_modules/*' -not -path '*/dist/*' | sort
 ```
 
 ### Step 3: Wire Up Custom Field Support
@@ -226,7 +276,7 @@ Unless the user asked for a plugin admin page or a server API, delete:
 
 Then edit `<output-path>/server/src/index.ts` to drop the corresponding imports
 and exports, leaving `register`, `bootstrap`, `destroy`, and `config`. Run
-`npm run typecheck` (Step 4) afterwards — it will fail loudly on any import you
+`<pm> run typecheck` (Step 4) afterwards — it will fail loudly on any import you
 missed, which is the point.
 
 **Tell the user what you deleted**, in one line. If they do want an admin page or
@@ -342,14 +392,14 @@ The component must:
 ### Step 4: Build and Verify
 
 ```bash
-cd <output-path>
-npm install
-npm run typecheck
-npm run build
-npm run verify
+cd "<output-path>"
+<pm> install
+<pm> run typecheck
+<pm> run build
+<pm> run verify
 ```
 
-**Run `npm run typecheck` before `npm run build` — the build alone is not a
+**Run `<pm> run typecheck` before `<pm> run build` — the build alone is not a
 correctness check.** `strapi-plugin build` bundles with Vite, which resolves a
 missing named export to `undefined` and still exits 0. The most common way this
 bites: a misspelled or non-existent `@strapi/icons` name. The build succeeds, the
@@ -357,7 +407,7 @@ plugin loads, and the only symptom is an empty icon slot next to the field in th
 Content-Type Builder — no error anywhere. `tsc` catches it as
 `TS2305: Module '"@strapi/icons"' has no exported member '<Name>'`.
 
-`npm run verify` checks `package.json` metadata and the `exports` map. It does
+`<pm> run verify` checks `package.json` metadata and the `exports` map. It does
 **not** need a running Strapi instance, and it does not execute component code —
 so it cannot catch the icon problem either.
 
@@ -365,14 +415,14 @@ If a step fails, read the error output, fix the issue, and re-run. Common issues
 - `TS2305` on an icon import — the icon name doesn't exist in `@strapi/icons`.
   Check the name at https://design-system-git-main-strapijs.vercel.app/
 - Other TypeScript errors in the React component
-- `sh: strapi-plugin: command not found` — `npm install` didn't complete
+- `sh: strapi-plugin: command not found` — the install didn't complete
 
 **If you need to start over:** delete `<output-path>` entirely before
 re-scaffolding. A partial scaffold left from a failed run shadows the problem —
 stale files survive the re-copy and produce errors that don't match the current
 templates. Tell the user which directory you are deleting before you delete it.
 
-**The build is not optional.** A plugin wired into a Strapi app via a local `resolve:` path (Step 5) is loaded from its `dist/` output — Strapi will not load an unbuilt plugin. Always run `npm run build` before starting the Strapi app, and rebuild (or use `npm run watch`) after component changes.
+**The build is not optional.** A plugin wired into a Strapi app via a local `resolve:` path (Step 5) is loaded from its `dist/` output — Strapi will not load an unbuilt plugin. Always run `<pm> run build` before starting the Strapi app, and rebuild (or use `<pm> run watch`) after component changes.
 
 ### Step 5: Add Plugin to a Strapi App
 
@@ -415,17 +465,13 @@ project already compiles with it.
 
 The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name` in the plugin's `package.json` — not the npm package name.
 
-**Build first:** The plugin must be built (`npm run build` in the plugin directory) before Strapi can load it via `resolve:` — Strapi loads the compiled `dist/` output, and an unbuilt plugin fails at startup.
+**Build first:** The plugin must be built (`<pm> run build` in the plugin directory) before Strapi can load it via `resolve:` — Strapi loads the compiled `dist/` output, and an unbuilt plugin fails at startup.
 
 **Monorepo / Yarn workspaces:** If the Strapi app lives in a monorepo (e.g., a workspace like `examples/getstarted`), adapt the plugin instead of using the standalone defaults:
 - Place the plugin somewhere inside the workspace tree (e.g., `src/plugins/<plugin-id>/`) and reference it with a relative `resolve:` path.
 - Use workspace-protocol or exact versions in the plugin's `package.json` that match the monorepo's Strapi version (e.g., `"@strapi/strapi": "workspace:*"` for Yarn), so the workspace resolver links against the local packages.
-- Use the monorepo's package manager rather than assuming `npm`. Detect it from
-  the app's `packageManager` field or its lockfile — `yarn.lock` → `yarn`,
-  `pnpm-lock.yaml` → `pnpm`, `package-lock.json` → `npm` — and use that
-  everywhere, including the Step 4 build commands. The workspace dependency
-  protocol differs too: `workspace:*` for Yarn and pnpm, `"*"` resolved by npm
-  workspaces.
+- Use the monorepo's own package manager (`<pm>`, detected in Step 1c) for
+  every command, including the Step 4 build.
 
 #### 5b. Update CSP Security Middleware (if needed)
 
@@ -438,9 +484,9 @@ The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name
 #### 5c. Install and Start
 
 ```bash
-cd <strapi-app-path>
-npm install
-npm run develop
+cd "<strapi-app-path>"
+<pm> install
+<pm> run develop
 ```
 
 ### Step 6: Summary
@@ -465,14 +511,14 @@ Strapi integration:
   config/middlewares.ts                      — CORS/CSP updated (if applicable)
 
 Checks run:
-  npm run typecheck                          — passed (catches bad icon names)
-  npm run build                              — passed
-  npm run verify                             — passed
+  <pm> run typecheck                         — passed (catches bad icon names)
+  <pm> run build                             — passed
+  <pm> run verify                            — passed
 
 Development workflow:
   1. Customize the React component in admin/src/components/custom-field/<Name>/index.tsx
-  2. Watch mode: cd <output-path> && npm run watch:link
-  3. Start Strapi: cd <strapi-app-path> && npm run develop
+  2. Watch mode: cd "<output-path>" && <pm> run watch:link
+  3. Start Strapi: cd "<strapi-app-path>" && <pm> run develop
   4. Add the custom field to a content type in the Content-Type Builder
 
 Security: External resources added? CSP updated minimally? User input sanitized?
@@ -492,7 +538,7 @@ Ask the user whether this plugin is for internal use or for distribution.
 **If distributing to other Strapi projects:**
 
 1. Confirm the plugin is production-ready:
-   - `npm run build` and `npm run verify` pass
+   - `<pm> run typecheck`, `<pm> run build` and `<pm> run verify` pass
    - The custom field calls `onChange` and persists values correctly
    - README covers install, configuration, and CSP middleware changes (if applicable)
    - Plugin ID is the short name (`color-picker`), not the full npm package name
@@ -525,7 +571,7 @@ Before finishing (Step 6), review the plugin you created. Custom fields run in t
 
 6. **Pin dependencies** — Keep the pinned versions from `package.json.template`; never use `"*"`. Do not commit secrets or API keys; use Strapi config / env vars for credentials.
 
-7. **Before Marketplace or wide distribution** — Re-run `npm run verify`, confirm `onChange` persists values correctly, review the CSP diff, and ensure the README documents any required middleware changes.
+7. **Before Marketplace or wide distribution** — Re-run `<pm> run verify`, confirm `onChange` persists values correctly, review the CSP diff, and ensure the README documents any required middleware changes.
 
 **When in doubt:** prefer a simpler field (local UI, built-in type, no external calls) over a feature that requires broad CSP exceptions or user-controlled embeds.
 
@@ -593,7 +639,7 @@ Tiles are plain images, so this is the only directive that changes — no
 **Google Maps / Mapbox:**
 ```typescript
 'frame-src': ["'self'", 'https://www.google.com'],
-'img-src': [..., 'https://*.tile.openstreetmap.org', 'https://api.mapbox.com'],
+'img-src': [..., 'https://a.tile.openstreetmap.org', 'https://b.tile.openstreetmap.org', 'https://api.mapbox.com'],
 'connect-src': [..., 'https://api.mapbox.com', 'https://events.mapbox.com'],
 'script-src': [..., 'https://api.mapbox.com'],
 ```
@@ -671,7 +717,7 @@ const toYouTubeEmbedUrl = (url: string): string | null => {
 | Broken images from external sources | CSP `img-src` missing the image domain | Add domain to `img-src`, restart Strapi |
 | External font not loading | CSP `font-src` or `style-src` missing | Add font CDN to `font-src` and stylesheet CDN to `style-src` |
 | API call fails from admin panel | CSP `connect-src` missing the API domain | Add API domain to `connect-src`, restart Strapi |
-| Changes to `middlewares.ts` have no effect | Strapi not restarted | Stop and restart Strapi (`npm run develop`) |
+| Changes to `middlewares.ts` have no effect | Strapi not restarted | Stop and restart Strapi (`<pm> run develop`) |
 
 ## Reference
 

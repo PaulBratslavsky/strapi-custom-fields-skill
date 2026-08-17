@@ -10,6 +10,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { join, basename } from "node:path";
+import { pathToFileURL } from "node:url";
 
 import {
   CUSTOM_FIELDS_DIR,
@@ -141,8 +142,10 @@ describe("iframe permissions", () => {
 
   test("every iframe sets referrerPolicy", () => {
     // SKILL.md flags this as CRITICAL: without it YouTube returns Error 153.
+    // Match the opening tag only, so `<iframe ...></iframe>` is checked too —
+    // matching `<iframe ... />` alone silently skips paired tags.
     for (const [label, body] of sources) {
-      for (const tag of body.match(/<iframe[\s\S]*?\/>/g) ?? []) {
+      for (const tag of body.match(/<iframe\s[^>]*>/g) ?? []) {
         assert.match(
           tag,
           /referrerPolicy=["']strict-origin-when-cross-origin["']/,
@@ -168,6 +171,25 @@ describe("CSP guidance stays narrow", () => {
       !scriptSrc.includes("unsafe-inline"),
       "'unsafe-inline' must not appear in script-src"
     );
+  });
+
+  test("CSP examples obey the rule the checklist states", () => {
+    // The checklist requires concrete origins. Every example in the document
+    // has to comply, or the example is what gets copied.
+    const examples = [...SKILL.matchAll(/'(?:img|script|frame|connect|style|font|media)-src':\s*\[([^\]]*)\]/g)]
+      .map((m) => m[1]);
+    assert.ok(examples.length > 0, "no CSP directive examples found");
+
+    for (const body of examples) {
+      assert.ok(
+        !/\*\./.test(body),
+        `a CSP example uses a wildcard host, which the checklist forbids: ${body.trim()}`
+      );
+      assert.ok(
+        !/["']https:["']/.test(body),
+        `a CSP example uses a bare 'https:' scheme: ${body.trim()}`
+      );
+    }
   });
 
   test("no template injects HTML directly", () => {
@@ -289,6 +311,18 @@ describe("package.json.template", () => {
     }
   });
 
+  test("scripts do not hardcode a package manager", () => {
+    // A script that shells out to `npm run` breaks the Yarn/pnpm projects the
+    // skill's own package-manager detection is meant to support.
+    const pkg = JSON.parse(raw.replace(/\{\{\s*([A-Z_]+)\s*\}\}/g, "placeholder"));
+    for (const [script, cmd] of Object.entries(pkg.scripts)) {
+      assert.ok(
+        !/\b(npm|yarn|pnpm|bun)\s+run\b/.test(cmd),
+        `script "${script}" hardcodes a package manager: ${cmd}`
+      );
+    }
+  });
+
   test("scripts run under npm", () => {
     const pkg = JSON.parse(
       raw.replace(/\{\{\s*([A-Z_]+)\s*\}\}/g, "placeholder")
@@ -340,7 +374,7 @@ describe("docs match the templates on disk", () => {
     // The build alone exits 0 on a nonexistent icon import; only tsc catches it.
     assert.match(
       SKILL,
-      /npm run typecheck/,
+      /(?:<pm>|npm) run typecheck/,
       "Step 4 must run the typecheck — the build does not catch bad icon names"
     );
   });
@@ -388,5 +422,34 @@ describe("multi-file component templates", () => {
     const builder = tileMath.match(/buildTileUrl[\s\S]*?\n\};/)?.[0] ?? "";
     assert.match(builder, /clamp\(/, "buildTileUrl must bound its coordinates");
     assert.match(builder, /Math\.floor/, "buildTileUrl must floor its coordinates");
+    assert.match(
+      builder,
+      /Number\.isFinite/,
+      "buildTileUrl must reject non-finite input — Math.floor(NaN) is NaN and " +
+        "clamp passes it through, producing `<origin>/NaN/NaN/NaN.png`"
+    );
+  });
+
+  test("buildTileUrl actually survives NaN and Infinity", async () => {
+    // Execute the real module rather than pattern-matching it. Node strips the
+    // TypeScript annotations natively, so no transform step is needed.
+    const { buildTileUrl } = await import(
+      pathToFileURL(
+        join(CUSTOM_FIELDS_DIR, "location-picker", "component", "tileMath.ts")
+      ).href
+    );
+
+    for (const args of [
+      [NaN, NaN, NaN],
+      [Infinity, -Infinity, 5],
+      [0, 0, NaN],
+    ]) {
+      const url = buildTileUrl(...args);
+      assert.ok(
+        !/NaN|Infinity|undefined/.test(url),
+        `buildTileUrl(${args.join(", ")}) produced ${url}`
+      );
+      assert.match(url, /^https:\/\/[\w.-]+\/\d+\/\d+\/\d+\.png$/, `bad URL: ${url}`);
+    }
   });
 });

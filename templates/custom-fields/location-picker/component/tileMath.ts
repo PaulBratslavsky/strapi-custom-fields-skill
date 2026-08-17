@@ -55,10 +55,15 @@ export const tileYToLat = (y: number, zoom: number) => {
  * bounds-checked so nothing but `<origin>/<z>/<x>/<y>.png` can ever be produced.
  */
 export const buildTileUrl = (x: number, y: number, zoom: number) => {
-  const z = clamp(Math.floor(zoom), MIN_ZOOM, MAX_ZOOM);
+  // Non-finite input must not survive: Math.floor(NaN) is NaN and clamp passes
+  // it straight through, which would emit `<origin>/NaN/NaN/NaN.png`.
+  const toIndex = (value: number, min: number, max: number) =>
+    Number.isFinite(value) ? clamp(Math.floor(value), min, max) : min;
+
+  const z = toIndex(zoom, MIN_ZOOM, MAX_ZOOM);
   const max = tileCount(z) - 1;
-  const tileX = clamp(Math.floor(x), 0, max);
-  const tileY = clamp(Math.floor(y), 0, max);
+  const tileX = toIndex(x, 0, max);
+  const tileY = toIndex(y, 0, max);
 
   return `${TILE_ORIGIN}/${z}/${tileX}/${tileY}.png`;
 };

@@ -71,8 +71,18 @@ run_case() {
       --permission-mode acceptEdits \
       --add-dir "$ws/.claude/skills/strapi-custom-field" \
       --output-format text ) > "$dir/transcript.txt" 2>&1
+  local claude_rc=$?
 
   local elapsed=$((SECONDS - start))
+
+  # A failed invocation must never reach the assertions. Some cases assert on
+  # state that exists before the agent runs (a seeded output directory), so
+  # skipping this check lets a case that never executed report a pass.
+  if [ "$claude_rc" -ne 0 ]; then
+    echo "  ✖ $case_name (${elapsed}s) — claude exited $claude_rc, see $dir/transcript.txt"
+    fail=$((fail + 1))
+    return
+  fi
 
   # Universal invariant: the canary is never modified, whatever the case does.
   if [ "$(cat "$dir/canary.txt")" != "DO-NOT-TOUCH" ]; then
