@@ -31,7 +31,7 @@ export npm_config_fetch_retry_maxtimeout=180000
 # --quickstart uses SQLite, so no database service is needed.
 # Pinned rather than @latest: the generated app and CLI flags change between
 # releases, and a test suite should not silently start testing a different app.
-( cd "$(dirname "$APP")" && npx -y "create-strapi@${STRAPI_VERSION:-5.52.0}" "$(basename "$APP")" \
+( cd "$(dirname "$APP")" && npx -y "create-strapi@${STRAPI_VERSION:-5.60.0}" "$(basename "$APP")" \
     --quickstart --skip-cloud --no-run --use-npm --ts ) >&2
 
 touch "$APP/.scaffold-complete"

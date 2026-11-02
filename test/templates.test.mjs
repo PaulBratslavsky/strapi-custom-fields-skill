@@ -357,7 +357,7 @@ describe("docs match the templates on disk", () => {
   });
 
   test("the config/plugins.ts snippet compiles under noImplicitAny", () => {
-    // Verified against a real Strapi 5.52 TS app: an unused `({ env })`
+    // Verified against real Strapi 5.52 and 5.60 TS apps: an unused `({ env })`
     // parameter fails the dev server with
     // "TS7031: Binding element 'env' implicitly has an 'any' type".
     const snippet = SKILL.match(
@@ -368,6 +368,16 @@ describe("docs match the templates on disk", () => {
       !/export default \(\{\s*env\s*\}\)\s*=>/.test(snippet),
       "the plugins.ts snippet destructures an untyped `env`, which fails TypeScript apps at startup"
     );
+  });
+
+  test("the Step 1b icon check imports @strapi/icons as an ES module", () => {
+    // @strapi/icons 2.x is ESM: require() returns {}, so a require-based check
+    // reports every icon as missing (seen on Strapi 5.60, icons 2.2.4).
+    assert.ok(
+      !/require\(['"]@strapi\/icons['"]\)\)\.includes/.test(SKILL),
+      "SKILL.md checks icons with require(), which always prints false"
+    );
+    assert.match(SKILL, /import \* as icons from '@strapi\/icons'/);
   });
 
   test("SKILL.md Step 4 runs the typecheck", () => {

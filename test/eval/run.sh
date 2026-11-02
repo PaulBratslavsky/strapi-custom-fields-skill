@@ -54,8 +54,12 @@ run_case() {
     local src
     src="$("$HERE/make-app.sh")"
     echo "  copying real Strapi app…"
-    ( cd "$src" && tar --exclude='.tmp' --exclude='dist' --exclude='.cache' -cf - . ) \
-      | ( mkdir -p "$ws/app" && cd "$ws/app" && tar -xf - )
+    # Exclude only the app's own build output. tar's --exclude matches at any
+    # depth (bsdtar even with a ./ prefix), so it also stripped every
+    # node_modules/*/dist and Strapi died with "Cannot find module '../dist/cli'",
+    # a failure that looks like the plugin's fault. rsync anchors a leading /.
+    mkdir -p "$ws/app"
+    rsync -a --exclude='/.tmp' --exclude='/dist' --exclude='/.cache' "$src/" "$ws/app/"
     cp -R "$ws/app/config" "$dir/config-before"
   fi
 

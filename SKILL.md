@@ -96,11 +96,16 @@ discovering a problem after twenty files are on disk.
 | Icon name | `^[A-Za-z][A-Za-z0-9]*$`, **and** a real export of `@strapi/icons` | Becomes both an `import { X }` and a bare identifier `icon: X` |
 
 **Check the icon name against the installed package**, not just the pattern —
-this is the one identifier whose mistakes are invisible:
+this is the one identifier whose mistakes are invisible. Run it from the Strapi
+app's root (or the plugin's, once its dependencies are installed):
 
 ```bash
-node -e "console.log(Object.keys(require('@strapi/icons')).includes('<IconName>'))"
+node --input-type=module -e "import * as icons from '@strapi/icons'; console.log('<IconName>' in icons)"
 ```
+
+Use `import`, not `require`: `@strapi/icons` 2.x is an ES module, and
+`require('@strapi/icons')` returns an empty object, so a `require`-based check
+prints `false` for every icon, real or not.
 
 A name that isn't exported still **builds successfully** (see Step 4), so
 nothing downstream will catch it. If the plugin's dependencies aren't installed
@@ -266,6 +271,7 @@ Unless the user asked for a plugin admin page or a server API, delete:
 
 ```text
 <output-path>/admin/src/pages/               (App.tsx, HomePage.tsx)
+<output-path>/admin/src/components/PluginIcon.tsx  (only the base admin index imported it)
 <output-path>/server/src/controllers/        (index.ts, controller.ts)
 <output-path>/server/src/routes/             (index.ts, admin/, content-api/)
 <output-path>/server/src/services/           (index.ts, service.ts)
