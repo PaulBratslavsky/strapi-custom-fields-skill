@@ -6,7 +6,7 @@ Here are all the answers to the skill's questions:
 - Display name: The "Quote" Field
 - Description: Stores a quote. Editors say "it's useful" — supports \ backslashes.
 - Field type: string
-- Icon: Quote
+- Icon: Quotes
 - Template: string-field
 - Output path: ./out
 - Strapi app path: none, skip the app integration step
