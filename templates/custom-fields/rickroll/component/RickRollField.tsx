@@ -25,16 +25,18 @@ const RickRollField = ({
   error,
   description,
   required = false,
+  disabled = false,
 }: RickRollFieldProps) => {
   // The embed is hardcoded, but the field still persists a real value so it
-  // behaves like a complete custom field (not display-only).
+  // behaves like a complete custom field (not display-only). Skip the write
+  // when the field is disabled — a read-only field must not dirty the entry.
   useEffect(() => {
-    if (!value) {
+    if (!disabled && !value) {
       onChange({
         target: { name, value: YOUTUBE_VIDEO_ID, type: "string" },
       });
     }
-  }, [value, name, onChange]);
+  }, [disabled, value, name, onChange]);
 
   return (
     <Field.Root
@@ -51,7 +53,7 @@ const RickRollField = ({
           <iframe
             src={`https://www.youtube.com/embed/${YOUTUBE_VIDEO_ID}`}
             title="YouTube video player"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
             referrerPolicy="strict-origin-when-cross-origin"
             allowFullScreen
           />

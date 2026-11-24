@@ -22,16 +22,20 @@ The root of this repository **is** the skill (`SKILL.md` at the top level). Clon
 
 ```bash
 # Global install (available in all projects)
+mkdir -p ~/.claude/skills
 git clone https://github.com/PaulBratslavsky/strapi-custom-fields-skill.git ~/.claude/skills/strapi-custom-field
 
 # Or project-level install
+mkdir -p .claude/skills
 git clone https://github.com/PaulBratslavsky/strapi-custom-fields-skill.git .claude/skills/strapi-custom-field
 ```
 
-If you already have a local copy, copy the repository contents (not a subfolder) into the skills directory:
+If you already have a local copy, copy the repository *contents* into the skills
+directory — note the trailing `/.`, which avoids nesting the repo inside itself:
 
 ```bash
-cp -r strapi-custom-fields-skill ~/.claude/skills/strapi-custom-field
+mkdir -p ~/.claude/skills/strapi-custom-field
+cp -R strapi-custom-fields-skill/. ~/.claude/skills/strapi-custom-field/
 ```
 
 ## Usage
@@ -65,7 +69,7 @@ Claude will walk you through the setup, asking for:
 | Description     | `Pick a color using a color wheel` |
 | Field type      | `string`, `json`, `text`, `integer`, or `boolean` |
 | Icon            | `PaintBrush`                     |
-| Template        | `string-field`, `json-field`, `text-field`, `integer-field`, `boolean-field`, `color-picker`, `star-rating`, or `rickroll` |
+| Template        | `string-field`, `json-field`, `text-field`, `integer-field`, `boolean-field`, `color-picker`, `star-rating`, `location-picker`, or `rickroll` |
 | Output path     | `./plugins/strapi-plugin-color-picker` |
 
 ## Skill Structure
@@ -168,17 +172,26 @@ strapi-custom-field/
         │   ├── server-register.ts
         │   └── component/
         │       └── ColorPickerField.tsx
-        └── star-rating/                  # Working example: 1–5 star buttons
+        ├── star-rating/                  # Working example: 1–5 star buttons
+        │   ├── README.md
+        │   ├── admin-index.ts
+        │   ├── server-register.ts
+        │   └── component/
+        │       └── StarRatingField.tsx
+        └── location-picker/              # Working example: pan/zoom/click map
             ├── README.md
             ├── admin-index.ts
             ├── server-register.ts
             └── component/
-                └── StarRatingField.tsx
+                ├── LocationPickerField.tsx
+                └── tileMath.ts           # Supporting module — copied as-is
 ```
 
 ## Custom Field Templates
 
-Pre-built templates in `templates/custom-fields/`. Each provides 3 override files that replace the base scaffold's generic admin index, server register, and add a React component.
+Pre-built templates in `templates/custom-fields/`. Each provides override files that replace the base scaffold's generic admin index and server register, plus the React component itself. Most have a single component file; `location-picker` has a supporting module alongside it, so the whole `component/` directory is copied.
+
+They form a ladder from simple to complex: the `*-field` starters are one correctly-wired input each, the working examples are complete interactive fields extracted from components tested in a live Strapi app, and `location-picker` is the most complex — the reference for a field that loads external resources and needs a CSP change.
 
 | Template | Type | Description |
 |----------|------|-------------|
@@ -190,6 +203,7 @@ Pre-built templates in `templates/custom-fields/`. Each provides 3 override file
 | `boolean-field` | boolean | Toggle for flags and on/off values |
 | `color-picker` | string | Working example: native color swatch + hex input |
 | `star-rating` | integer | Working example: interactive 1–5 star buttons, click-to-clear |
+| `location-picker` | json | Working example: pan/zoom/click slippy map + lat-lng inputs; needs one `img-src` CSP entry |
 
 All server-register templates include `inputSize: { default: 12, isResizable: true }` for full-width field rendering in the Content-Type Builder.
 

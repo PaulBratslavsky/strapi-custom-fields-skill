@@ -27,8 +27,16 @@ const {{COMPONENT_NAME}} = ({
   placeholder,
 }: {{COMPONENT_NAME}}Props) => {
   const handleValueChange = (newValue?: number) => {
+    // The field is stored as an integer, so a fractional value would be
+    // truncated (or rejected) server-side. Round here so what the editor sees
+    // is what gets persisted.
+    const next =
+      newValue === undefined || Number.isNaN(newValue)
+        ? null
+        : Math.round(newValue);
+
     onChange({
-      target: { name, value: newValue ?? null, type: "integer" },
+      target: { name, value: next, type: "integer" },
     });
   };
 
