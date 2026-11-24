@@ -87,6 +87,11 @@ Several of the answers above become identifiers that Strapi, npm, and the
 filesystem each have their own rules about. Check them once, here, rather than
 discovering a problem after twenty files are on disk.
 
+**This is a gate.** Do not create, copy, or edit any file, and do not run any
+shell command that uses these values, until every value in the table below
+matches its pattern and the user has accepted any change you proposed. If a
+value fails, ask again; never continue with a value that fails.
+
 | Value | Must match | Why |
 |---|---|---|
 | Plugin name | `^strapi-plugin-[a-z0-9]+(-[a-z0-9]+)*$` | It is an npm package name — `..`, `/`, spaces, and uppercase are all illegal |
@@ -485,9 +490,32 @@ The key is the **short plugin ID** (e.g., `color-picker`), matching `strapi.name
 
 **How to update:** Read the existing `config/middlewares.ts`. If `'strapi::security'` is a plain string, expand it to an object config. If it already has an object config, merge in the new domains. See the "External Resources & CSP Middleware" section below for the full directive reference and examples.
 
+**Check every source before you write it.** Each source you add must be a
+single origin and match this pattern:
+
+```text
+^https://[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:[0-9]{1,5})?$
+```
+
+That pattern rejects wildcards (`https://*.example.com`), bare schemes
+(`https:`, `data:` added for a third-party host), `http://`, paths, and
+keywords such as `'unsafe-inline'` or `'unsafe-eval'`. If a source fails, do
+not write it: tell the user which source failed and why, and ask for the exact
+origin. Then show the user the diff of `config/middlewares.ts` and write it only
+after they agree.
+
+The entries Strapi already ships (`'self'`, `data:`, `blob:`,
+`market-assets.strapi.io`) stay as they are; the check applies to the sources
+you add.
+
 **IMPORTANT:** After updating `config/middlewares.ts`, the Strapi server MUST be restarted for changes to take effect. CSP headers are set at server startup — changing the file alone does nothing until restart.
 
 #### 5c. Install and Start
+
+These commands change the user's app: `<pm> install` rewrites its lockfile and
+`node_modules`, and `<pm> run develop` starts a server. Tell the user the exact
+commands and the directory first, and run them only after they agree. If they
+would rather run them themselves, give them the commands and stop.
 
 ```bash
 cd "<strapi-app-path>"

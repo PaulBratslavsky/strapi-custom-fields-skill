@@ -42,6 +42,9 @@ cd test && ./eval/run.sh                    # all cases
 cd test && ./eval/run.sh location-picker    # one case
 ```
 
+Requires the `claude` CLI and `rsync` (used to copy the cached Strapi app). Set
+`STRAPI_VERSION` to test another release; the cache is rebuilt when it changes.
+
 Drives a headless `claude -p` per case in a throwaway workspace, with the
 **working tree** installed as the skill (not whatever is in `~/.claude/skills`),
 then asserts on the resulting filesystem rather than on transcript wording, so
@@ -53,7 +56,7 @@ overwrite check, the Step 5 confirmation gates.
 
 | Case | Asserts |
 |---|---|
-| `bad-plugin-name` | An illegal name is surfaced to the user, not silently rewritten, and never escapes the output directory |
+| `bad-plugin-name` | An illegal name stops the run at the Step 1b gate (or is renamed with the user told), is never silently rewritten, and never escapes the output directory |
 | `hostile-output-path` | Shell metacharacters in the output path are never executed |
 | `awkward-description` | Quotes, newlines, and backslashes in free text still yield parseable `package.json` |
 | `populated-output-dir` | A pre-existing file in the output directory survives |

@@ -59,8 +59,12 @@ run_case() {
     # node_modules/*/dist and Strapi died with "Cannot find module '../dist/cli'",
     # a failure that looks like the plugin's fault. rsync anchors a leading /.
     mkdir -p "$ws/app"
-    rsync -a --exclude='/.tmp' --exclude='/dist' --exclude='/.cache' "$src/" "$ws/app/"
-    cp -R "$ws/app/config" "$dir/config-before"
+    if ! rsync -a --exclude='/.tmp' --exclude='/dist' --exclude='/.cache' "$src/" "$ws/app/" \
+        || ! cp -R "$ws/app/config" "$dir/config-before"; then
+      echo "  ✖ $case_name — could not copy the Strapi app (rsync is required)"
+      fail=$((fail + 1))
+      return
+    fi
   fi
 
   # Cases that need a pre-populated output directory (overwrite behaviour).

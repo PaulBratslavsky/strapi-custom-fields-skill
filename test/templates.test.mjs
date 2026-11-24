@@ -192,6 +192,27 @@ describe("CSP guidance stays narrow", () => {
     }
   });
 
+  test("Step 5b's origin pattern accepts the examples and rejects broad sources", () => {
+    // Step 5b tells the agent to check each source against this pattern before
+    // writing it. Run the pattern itself so a typo in it cannot pass unnoticed.
+    const src = SKILL.match(/Check every source before you write it[\s\S]*?```text\n(.+)\n```/)?.[1];
+    assert.ok(src, "could not locate the CSP origin pattern in Step 5b");
+    const origin = new RegExp(src);
+
+    const examples = [...SKILL.matchAll(/'(https:\/\/[^']+)'/g)].map((m) => m[1]);
+    assert.ok(examples.length > 0, "no https:// CSP examples found");
+    for (const ok of [...examples, "https://localhost.dev:8443"]) {
+      assert.match(ok, origin, `the pattern rejects an example the skill uses: ${ok}`);
+    }
+    for (const bad of [
+      "https://*.example.com", "https:", "http://example.com", "'unsafe-inline'",
+      "https://example.com/path", "https://example.com;script-src *", "data:",
+      "https://example", "https://exa mple.com",
+    ]) {
+      assert.doesNotMatch(bad, origin, `the pattern accepts a broad or malformed source: ${bad}`);
+    }
+  });
+
   test("no template injects HTML directly", () => {
     for (const name of TEMPLATES) {
       for (const [path, body] of Object.entries(readTemplate(name))) {
@@ -461,5 +482,18 @@ describe("multi-file component templates", () => {
       );
       assert.match(url, /^https:\/\/[\w.-]+\/\d+\/\d+\/\d+\.png$/, `bad URL: ${url}`);
     }
+  });
+});
+
+describe("confirmation gates", () => {
+  test("Step 1b is a gate before any file or shell step", () => {
+    const step = SKILL.match(/### Step 1b[\s\S]*?### Step 1c/)?.[0] ?? "";
+    assert.match(step, /\*\*This is a gate\.\*\*/, "Step 1b no longer states it is a gate");
+    assert.match(step, /never continue with a value that fails/);
+  });
+
+  test("Step 5c asks before installing or starting the user's app", () => {
+    const step = SKILL.match(/#### 5c\. Install and Start[\s\S]*?### Step 6/)?.[0] ?? "";
+    assert.match(step, /run them only after they agree/, "Step 5c runs install/develop without asking");
   });
 });
